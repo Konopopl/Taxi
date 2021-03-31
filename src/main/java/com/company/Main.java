@@ -1,105 +1,104 @@
 package com.company;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class Main {
-    private static final Deque<Order> ordersQueue = new ArrayDeque<Order>();
-    private static final Deque<Taxi> freeDrivers = new ArrayDeque<Taxi>();
-    private static ArrayList<Taxi> drivers = new ArrayList<Taxi>();
+    public static int amountTaxi = 100;
+    static ArrayList<Taxi> taxsists = new ArrayList<>(amountTaxi);
+    public static volatile ArrayBlockingQueue<Taxi> queueTaxi = new ArrayBlockingQueue<>(1000);
 
-    private static class Dispatcher extends Thread {
-        @Override
-        public void run() {
-            Order toAssign;
-            while(true) {
-                toAssign = getOrder();
-                print(toAssign);
-            }
+    public static void creatingFillingInAnArrayOfTaxiDriversAddingThemToTheQueue() {
+        for (int i = 0; i < amountTaxi; i++) {
+            taxsists.add(new Taxi(i));
         }
-
-        private Order getOrder() {
-            while (true) {
-                synchronized (ordersQueue) {
-                    while (ordersQueue.isEmpty()) {
-                        try {
-                            ordersQueue.wait();
-                        } catch (InterruptedException ignore) {}
-                    }
-                    Order temporary = ordersQueue.removeFirst();
-                    ordersQueue.notify();
-                    return temporary;
-                }
-            }
-        }
-
-        private static void print(Order s) { // ctrl+alt+M
-            System.out.println(s.name);
+        for (Taxi c : taxsists) {
+            queueTaxi.add(c);
         }
     }
 
+
+    public static class Disp extends Thread {
+        @Override
+        public void run() {
+            while (true) {
+
+                Order order = new Order();
+                Taxi executor = null;
+
+                try {
+                    executor = queueTaxi.take();
+                } catch (InterruptedException ignore) {
+                    ignore.printStackTrace();
+                }
+                executor.setCondition("placeOrder");
+                System.out.println("Taxi:" + executor.number + ", placeOrder" + order.name);
+                synchronized (executor) {
+                    executor.notify();
+                }
+            }
+        }
+    }
     public static class Taxi extends Thread {
+        public String condition;
+        public int number;
+        public Taxi() {
+        }
+
+        public Taxi(int number) {
+            this.number = number;
+        }
+
+        public void setCondition(String condition) {
+            this.condition = condition;
+        }
+
+        public void setNumber(int number) {
+            this.number = number;
+        }
+
+        public static int random() {
+            int lowestValue = 0;
+            int highestМalue = 10;
+            int random_number = lowestValue + (int) (Math.random() * highestМalue);
+            return random_number;
+        }
+
         @Override
         public void run() {
             while (true) {
-
-            }
-        }
-
-        public void doStuff() {
-            sleep();
-        }
-
-        public void placeDriver() {
-            freeDrivers.add(this);
-        }
-
-    }
-
-    private static class Order_generator extends Thread {
-        @Override
-        public void run() {
-            Order newOrder;
-            while(true) {
-                newOrder = new Order();
-                addOrder(newOrder);
-            }
-        }
-
-        private void addOrder(Order newOrder) {
-            while (true) {
-                synchronized (ordersQueue) {
-                    while (ordersQueue.size() > 1000) {
+                synchronized (this) {
+                    while (!(this.condition == null)) {
                         try {
-                            ordersQueue.wait();
-                        } catch (InterruptedException ignore1) {
+                            sleep(random());
+                        } catch (InterruptedException ignore) {
+                            ignore.printStackTrace();
                         }
+
+                        System.out.println(this.number + "  Hi Hitler");
+                        this.condition = null;
+                        queueTaxi.add(this);
+                        try {
+                            this.wait();
+                        } catch (InterruptedException ignore) {
+                            ignore.printStackTrace();
+                        }
+
                     }
-                    ordersQueue.add(newOrder);
-                    ordersQueue.notify();
-                    break;
                 }
             }
         }
-
     }
+
 
     public static void main(String[] args) {
-        Order_generator generator = new Order_generator();
-        generator.setName("generator");
-        Dispatcher dispatcher = new Dispatcher();
-        dispatcher.setName("dispatcher");
-        generator.start();
-        dispatcher.start();
-
-
-        // int N = 10;
-        // for (int i = 0; i < N; ++i) {
-        //     Taxi taxi = new Taxi();
-        //     taxi.setName("driver" + i);
-        //     drivers.add(taxi);
-        //     taxi.start();
-        // }
-        System.out.println("Hello1");
+        creatingFillingInAnArrayOfTaxiDriversAddingThemToTheQueue();
+        Disp dispetcher = new Disp();
+        dispetcher.start();
+        for (Taxi c : taxsists) {
+            c.start();
+        }
     }
 }
